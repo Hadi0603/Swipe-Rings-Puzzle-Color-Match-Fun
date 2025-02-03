@@ -1,0 +1,6 @@
+NAME : Swipe Rings Puzzle – Color Match Fun
+PACKAGE NAME : com.srp.swiperingspuzzlecmf
+COMPANY/ KEYSTORE NAME/ ALIAS : srp
+PASSWORD : airi@1234
+Target API: 34
+Minimum API: 22
