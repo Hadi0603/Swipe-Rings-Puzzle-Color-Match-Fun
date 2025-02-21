@@ -126,5 +126,6 @@ public class UIManager : MonoBehaviour
         timerText.enabled = false;
         levelLostUI.LeanAlpha(1, 0.5f);
         lostPanel.LeanMoveLocalY(0, 0.5f).setEaseOutExpo().delay = 0.1f;
+        discMover.SetActive(false);
     }
 }
