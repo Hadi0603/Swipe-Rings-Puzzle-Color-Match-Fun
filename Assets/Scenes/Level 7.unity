@@ -1739,6 +1739,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5604143232751758808, guid: e979764616458f84a9e15445fad1c224,
         type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.6008979
+      objectReference: {fileID: 0}
+    - target: {fileID: 5604143232751758808, guid: e979764616458f84a9e15445fad1c224,
+        type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
       objectReference: {fileID: 0}
@@ -1904,6 +1909,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: YellowDisc
+      objectReference: {fileID: 0}
+    - target: {fileID: 5604143232751758808, guid: e979764616458f84a9e15445fad1c224,
+        type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.6008979
       objectReference: {fileID: 0}
     - target: {fileID: 5604143232751758808, guid: e979764616458f84a9e15445fad1c224,
         type: 3}
@@ -4988,6 +4998,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_Name
       value: YellowDisc
+      objectReference: {fileID: 0}
+    - target: {fileID: 5604143232751758808, guid: e979764616458f84a9e15445fad1c224,
+        type: 3}
+      propertyPath: m_LocalScale.y
+      value: 1.6008979
       objectReference: {fileID: 0}
     - target: {fileID: 5604143232751758808, guid: e979764616458f84a9e15445fad1c224,
         type: 3}
