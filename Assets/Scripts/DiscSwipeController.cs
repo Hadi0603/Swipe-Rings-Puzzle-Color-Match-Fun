@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using UnityEngine;
+using Input = UnityEngine.Input;
+using System.Collections.Generic;
 using Screen = UnityEngine.Device.Screen;
 
 public class DiscSwipeController : MonoBehaviour
@@ -17,6 +19,10 @@ public class DiscSwipeController : MonoBehaviour
 
     private int totalDiscs; 
     private int remainingDiscs;
+    private bool isMoving = false; // Prevents new swipes while moving
+    private Dictionary<GameObject, bool> movingDiscs = new Dictionary<GameObject, bool>();
+
+
     
     public UIManager uiManager;
 
@@ -38,26 +44,37 @@ public class DiscSwipeController : MonoBehaviour
 
     private void DetectSwipe()
     {
+        if (isMoving) return; // Prevent new swipe while moving
+
         if (Input.GetMouseButtonDown(0))
         {
             swipeStart = Input.mousePosition;
             isSwiping = true;
 
-            // Check if the starting position is a disc
             Ray ray = Camera.main.ScreenPointToRay(swipeStart);
             if (Physics.Raycast(ray, out RaycastHit hit))
             {
                 if (hit.collider.CompareTag("Disc"))
                 {
                     selectedDisc = hit.collider.gameObject;
+
+                    // Check if the disc is already moving
+                    if (movingDiscs.ContainsKey(selectedDisc) && movingDiscs[selectedDisc])
+                    {
+                        Debug.Log("Disc is already moving. Swipe ignored.");
+                        isSwiping = false;
+                        return;
+                    }
+
                     Debug.Log($"Disc selected at start: {selectedDisc.name}");
                 }
                 else
                 {
                     Debug.Log("No disc detected at start.");
-                    isSwiping = false; 
+                    isSwiping = false;
                 }
             }
+
         }
 
         if (Input.GetMouseButtonUp(0) && isSwiping)
@@ -70,15 +87,12 @@ public class DiscSwipeController : MonoBehaviour
                 swipeDirection.Normalize();
                 DetermineMoveDirection(swipeDirection);
             }
-            else
-            {
-                Debug.Log("Swipe too short or no disc selected, not registering.");
-            }
 
             isSwiping = false;
-            selectedDisc = null; // Reset selectedDisc after the swipe
+            selectedDisc = null; 
         }
     }
+
 
     private void DetermineMoveDirection(Vector2 direction)
     {
@@ -106,130 +120,145 @@ public class DiscSwipeController : MonoBehaviour
         }
     }
 
-    private System.Collections.IEnumerator MoveDisc(GameObject disc, Vector3 direction)
+    private IEnumerator MoveDisc(GameObject disc, Vector3 direction)
+{
+    // Mark the disc as moving
+    movingDiscs[disc] = true;
+
+    Vector3 startScale = disc.transform.localScale;
+    Vector3 enlargedScale = startScale * 1.2f;
+
+    while (true)
     {
-        Vector3 startScale = disc.transform.localScale;
-        Vector3 enlargedScale = startScale * 1.2f;
+        Vector3 nextPosition = disc.transform.position + direction;
+        Collider[] colliders = Physics.OverlapSphere(nextPosition, 0.5f);
+        bool canMove = false;
+        bool isHole = false;
+        GameObject targetBlock = null;
+        GameObject targetHole = null;
 
-        while (true)
+        foreach (var collider in colliders)
         {
-            Vector3 nextPosition = disc.transform.position + direction;
-            Collider[] colliders = Physics.OverlapSphere(nextPosition, 0.5f);
-            bool canMove = false;
-            bool isHole = false;
-            GameObject targetBlock = null;
-            GameObject targetHole = null;
-
-            foreach (var collider in colliders)
+            if (collider.CompareTag("Block") && collider.transform.childCount == 0)
             {
-                if (collider.CompareTag("Block") && collider.transform.childCount == 0)
-                {
-                    canMove = true;
-                    targetBlock = collider.gameObject;
-                    break;
-                }
-                else if (collider.CompareTag("Block") && collider.transform.childCount > 0)
-                {
-                    Debug.Log("Obstacle detected: Stopping movement.");
-                    //CreatePuff(); // Create puff when blocked
-                }
-                else if (collider.CompareTag("Hole"))
-                {
-                    isHole = true;
-                    targetHole = collider.gameObject;
-                    break;
-                }
+                canMove = true;
+                targetBlock = collider.gameObject;
+                break;
             }
-
-            // Handle holes
-            if (isHole)
+            else if (collider.CompareTag("Block") && collider.transform.childCount > 0)
             {
-                string discName = disc.name;
-                string holeName = targetHole.name;
-
-                if (!discName.Equals(holeName.Replace("Hole", "Disc")))
-                {
-                    disc.transform.position = targetHole.transform.position + new Vector3(0, 0.5f, 0) - direction;
-                    //CreatePuff();
-                    Debug.Log($"Disc {disc.name} stopped behind hole: {targetHole.name}");
-                    yield break;
-                }
-                else
-                {
-                    Debug.Log($"Disc {disc.name} moving to hole: {targetHole.name}");
-
-                    // Smoothly move to the hole
-                    float moveDuration = 0.3f; // Duration for movement
-                    float elapsedTime = 0f;
-
-                    Vector3 initialPosition = disc.transform.position;
-                    Vector3 holePosition = targetHole.transform.position + new Vector3(0, 0.5f, 0);
-
-                    while (elapsedTime < moveDuration)
-                    {
-                        float t = elapsedTime / moveDuration;
-                        t = t * t * (3f - 2f * t); // Smoothstep easing
-                        disc.transform.position = Vector3.Lerp(initialPosition, holePosition, t);
-
-                        elapsedTime += Time.deltaTime;
-                        yield return null;
-                    }
-
-                    disc.transform.position = holePosition;
-                    Debug.Log($"Disc {disc.name} destroyed in hole: {targetHole.name}");
-                    Destroy(disc);
-                    popSound.Play();
-                    CreatePuff(targetHole);
-
-                    remainingDiscs--;
-
-                    if (remainingDiscs == 0)
-                    {
-                        uiManager.TriggerGameWon();
-                    }
-
-                    yield break;
-                }
+                Debug.Log("Obstacle detected: Stopping movement.");
             }
-
-            if (!canMove)
+            else if (collider.CompareTag("Hole"))
             {
-                Debug.Log("No valid block to move to. Stopping.");
-                yield break;
-            }
-            CreateTrailEffect(disc);
-            float moveTime = 0.2f; // Duration for each block movement
-            float elapsedBlockTime = 0f;
-
-            Vector3 startPosition = disc.transform.position;
-
-            // Scale up for juiciness
-            disc.transform.localScale = enlargedScale;
-
-            while (elapsedBlockTime < moveTime)
-            {
-                float t = elapsedBlockTime / moveTime;
-                t = t * t * (3f - 2f * t); // Smoothstep easing
-                disc.transform.position = Vector3.Lerp(startPosition, nextPosition, t);
-
-                elapsedBlockTime += Time.deltaTime;
-                yield return null;
-            }
-
-            disc.transform.position = nextPosition;
-            disc.transform.localScale = startScale;
-            jumpSound.Play();
-
-            if (targetBlock != null)
-            {
-                disc.transform.SetParent(targetBlock.transform);
-                Vector3 customPosition = targetBlock.transform.position + new Vector3(0, 0.5f, 0);
-                disc.transform.position = customPosition;
-
-                Debug.Log($"Disc {disc.name} positioned at custom position: {disc.transform.position}");
+                isHole = true;
+                targetHole = collider.gameObject;
+                break;
             }
         }
+
+        if (isHole)
+        {
+            string discName = disc.name;
+            string holeName = targetHole.name;
+
+            if (!discName.Equals(holeName.Replace("Hole", "Disc")))
+            {
+                disc.transform.position = targetHole.transform.position + new Vector3(0, 0.5f, 0) - direction;
+                Debug.Log($"Disc {disc.name} stopped behind hole: {targetHole.name}");
+                
+                // Unlock disc movement
+                movingDiscs[disc] = false;
+                
+                yield break;
+            }
+            else
+            {
+                Debug.Log($"Disc {disc.name} moving to hole: {targetHole.name}");
+
+                float moveDuration = 0.3f;
+                float elapsedTime = 0f;
+
+                Vector3 initialPosition = disc.transform.position;
+                Vector3 holePosition = targetHole.transform.position + new Vector3(0, 0.5f, 0);
+
+                while (elapsedTime < moveDuration)
+                {
+                    float t = elapsedTime / moveDuration;
+                    t = t * t * (3f - 2f * t);
+                    disc.transform.position = Vector3.Lerp(initialPosition, holePosition, t);
+
+                    elapsedTime += Time.deltaTime;
+                    yield return null;
+                }
+
+                disc.transform.position = holePosition;
+                Debug.Log($"Disc {disc.name} destroyed in hole: {targetHole.name}");
+                Destroy(disc);
+                popSound.Play();
+                CreatePuff(targetHole);
+
+                remainingDiscs--;
+
+                if (remainingDiscs == 0)
+                {
+                    uiManager.TriggerGameWon();
+                }
+
+                // Remove the disc from the dictionary since it's destroyed
+                movingDiscs.Remove(disc);
+
+                yield break;
+            }
+        }
+
+        if (!canMove)
+        {
+            Debug.Log("No valid block to move to. Stopping.");
+            
+            // Unlock disc movement
+            movingDiscs[disc] = false;
+            
+            yield break;
+        }
+
+        CreateTrailEffect(disc);
+        float moveTime = 0.2f;
+        float elapsedBlockTime = 0f;
+
+        Vector3 startPosition = disc.transform.position;
+
+        disc.transform.localScale = enlargedScale;
+
+        while (elapsedBlockTime < moveTime)
+        {
+            float t = elapsedBlockTime / moveTime;
+            t = t * t * (3f - 2f * t);
+            disc.transform.position = Vector3.Lerp(startPosition, nextPosition, t);
+
+            elapsedBlockTime += Time.deltaTime;
+            yield return null;
+        }
+
+        disc.transform.position = nextPosition;
+        disc.transform.localScale = startScale;
+        jumpSound.Play();
+
+        if (targetBlock != null)
+        {
+            disc.transform.SetParent(targetBlock.transform);
+            Vector3 customPosition = targetBlock.transform.position + new Vector3(0, 0.5f, 0);
+            disc.transform.position = customPosition;
+
+            Debug.Log($"Disc {disc.name} positioned at custom position: {disc.transform.position}");
+        }
     }
+
+    // Unlock disc movement
+    movingDiscs[disc] = false;
+}
+
+
 
     private void CreateTrailEffect(GameObject disc)
     {
