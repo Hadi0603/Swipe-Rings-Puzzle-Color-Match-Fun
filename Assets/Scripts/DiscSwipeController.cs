@@ -164,7 +164,23 @@ public class DiscSwipeController : MonoBehaviour
 
             if (!discName.Equals(holeName.Replace("Hole", "Disc")))
             {
-                disc.transform.position = targetHole.transform.position + new Vector3(0, 0.5f, 0) - direction;
+                float moveDuration = 0.3f;
+                float elapsedTime = 0f;
+                
+                Vector3 initialPosition = disc.transform.position;
+                Vector3 holePosition = targetHole.transform.position + new Vector3(0, 0.5f, 0);
+                while (elapsedTime < moveDuration)
+                {
+                    float t = elapsedTime / moveDuration;
+                    t = t * t * (3f - 2f * t); // Smoothstep easing
+                    disc.transform.position = Vector3.Lerp(initialPosition, holePosition, t);
+
+                    elapsedTime += Time.deltaTime;
+                    yield return null;
+                }
+                disc.transform.position = holePosition;
+                uiManager.GameOver();
+                //disc.transform.position = targetHole.transform.position + new Vector3(0, 0.5f, 0) - direction;
                 Debug.Log($"Disc {disc.name} stopped behind hole: {targetHole.name}");
                 
                 // Unlock disc movement
