@@ -117,7 +117,7 @@ public class UIManager : MonoBehaviour
         isBlinking = false;
     }
 
-    private void GameOver()
+    public void GameOver()
     {
         Debug.Log("Time's up! Game Over.");
         gameOverSound.Play();
